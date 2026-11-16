@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seguimiento de Hábitos - Astronauta</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    body {
+      margin: 0;
+      background: #0b1020;
+      color: #e8eefc;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+    }
+    .app {
+      width: 100%;
+      max-width: 720px;
+      background: #131b33;
+      border: 1px solid #25335c;
+      border-radius: 14px;
+      padding: 22px;
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 1.5rem;
+    }
+    .fila {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    input[type="text"], input[type="number"] {
+      flex: 1;
+      min-width: 180px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #2e4073;
+      background: #0b1020;
+      color: #fff;
+    }
+    button {
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      background: #3b82f6;
+      color: #fff;
+    }
+    button.secundario {
+      background: #243259;
+    }
+    button.peligro {
+      background: #b91c1c;
+    }
+    .tarjeta {
+      background: #0e1529;
+      border: 1px solid #223059;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .opciones {
+      display: flex;
+      gap: 14px;
+      margin-top: 8px;
+    }
+    .alerta {
+      color: #fbbf24;
+      font-size: 0.9rem;
+      margin-top: 6px;
+    }
+    .resumen {
+      background: #101a36;
+      border-left: 4px solid #38bdf8;
+      padding: 14px;
+      border-radius: 8px;
+      margin-top: 16px;
+    }
+    .oculto {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>🚀 Tracker de Hábitos Espaciales</h1>
+
+    <div class="fila">
+      <input type="text" id="nombreAstronauta" placeholder="Nombre del astronauta (ej. Valentina)" />
+      <button onclick="cargarPerfil()">Cargar perfil</button>
+    </div>
+
+    <div id="panelPrincipal" class="oculto">
+      <div class="fila">
+        <button onclick="mostrarFormularioDia()">Registrar nuevo día</button>
+        <button class="secundario" onclick="renderResumen()">Ver historial</button>
+        <button class="peligro" onclick="borrarHistorial()">Borrar historial</button>
+      </div>
+
+      <div id="formularioDia" class="oculto">
+        <h2 id="tituloDia"></h2>
+        <div id="listaHabitos"></div>
+        <button onclick="guardarDia()">Guardar registro del día</button>
+      </div>
+
+      <div id="areaResumen" class="resumen"></div>
+    </div>
+  </div>
+
+  <script>
+    const HABITOS = [
+      { id: "presion_ocular", nombre: "presion ocular", pregunta: "¿Revisaste tu presión ocular hoy?", mensajeNo: "Tomá tu presión ocular y registrala." },
+      { id: "control_equipo", nombre: "control del equipamiento", pregunta: "¿Controlaste el equipamiento de la nave hoy?", mensajeNo: "Controlá el equipamiento de la nave." },
+      { id: "compartir", nombre: "compartir con la tripulacion", pregunta: "¿Compartiste con tu tripulación hoy?", mensajeNo: "Compartí tiempo con tu tripulación." },
+      { id: "ordenar", nombre: "ordenar", pregunta: "¿Ordenaste tus pertenencias hoy?", mensajeNo: "Debés ordenar tus pertenencias." },
+      { id: "descansar", nombre: "descansar", pregunta: "¿Descansaste hoy?", mensajeNo: "Debés descansar." },
+      { id: "revisar_equipo", nombre: "revisar equipo", pregunta: "¿Revisaste tu equipo hoy?", mensajeNo: "Revisá tu equipo." },
+      { id: "agua", nombre: "tomar agua", pregunta: "¿Tomaste agua hoy?", mensajeNo: "Debés tomar agua." },
+      { id: "comer", nombre: "comer", pregunta: "¿Comiste hoy?", mensajeNo: "Debés comer." },
+      { id: "ducha", nombre: "ducha", pregunta: "¿Te bañaste hoy?", mensajeNo: "Andá a bañarte." }
+    ];
+
+    let astronautaActual = "";
+    let claveStorage = "";
+    let datosActuales = null;
+
+    function normalizarClave(nombre) {
+      return "tracker_astro_" + nombre.trim().toLowerCase().replace(/[^a-z0-9áéíóúñ_-]+/gi, "_");
+    }
+
+    function cargarPerfil() {
+      const nombre = document.getElementById("nombreAstronauta").value.trim();
+      if (!nombre) return alert("Ingresá un nombre de astronauta.");
+
+      astronautaActual = nombre;
+      claveStorage = normalizarClave(nombre);
+      const guardado = localStorage.getItem(claveStorage);
+
+      datosActuales = guardado
+        ? JSON.parse(guardado)
+        : { astronauta: nombre, diasRegistrados: 0, cumplidos: 0, totalPreguntas: 0, presiones: [] };
+
+      document.getElementById("panelPrincipal").classList.remove("oculto");
+      document.getElementById("formularioDia").classList.add("oculto");
+      renderResumen();
+    }
+
+    function mostrarFormularioDia() {
+      const proximoDia = datosActuales.diasRegistrados + 1;
+      document.getElementById("tituloDia").textContent = `Día ${proximoDia} — ${astronautaActual}`;
+      const contenedor = document.getElementById("listaHabitos");
+      contenedor.innerHTML = "";
+
+      HABITOS.forEach((h) => {
+        const extraPresion = h.id === "presion_ocular"
+          ? `<div style="margin-top:8px;">
+               <input type="text" id="valor_presion" placeholder="Valor de presión ocular (si respondiste Sí)" />
+             </div>`
+          : "";
+
+        contenedor.innerHTML += `
+          <div class="tarjeta">
+            <div><strong>${h.pregunta}</strong></div>
+            <div class="opciones">
+              <label><input type="radio" name="${h.id}" value="si" checked onchange="actualizarAlerta('${h.id}', 'si', '${h.mensajeNo}')"> Sí</label>
+              <label><input type="radio" name="${h.id}" value="no" onchange="actualizarAlerta('${h.id}', 'no', '${h.mensajeNo}')"> No</label>
+            </div>
+            <div id="alerta_${h.id}" class="alerta"></div>
+            ${extraPresion}
+          </div>
+        `;
+      });
+
+      document.getElementById("formularioDia").classList.remove("oculto");
+    }
+
+    function actualizarAlerta(id, valor, mensajeNo) {
+      const el = document.getElementById(`alerta_${id}`);
+      el.textContent = valor === "no" ? mensajeNo : "";
+    }
+
+    function guardarDia() {
+      const diaActual = datosActuales.diasRegistrados + 1;
+      let cumplidosHoy = 0;
+
+      HABITOS.forEach((h) => {
+        const marcada = document.querySelector(`input[name="${h.id}"]:checked`).value;
+        if (marcada === "si") {
+          cumplidosHoy++;
+          if (h.id === "presion_ocular") {
+            const val = document.getElementById("valor_presion").value.trim();
+            if (val) {
+              datosActuales.presiones.push({ dia: diaActual, valor: val });
+            }
+          }
+        }
+      });
+
+      datosActuales.diasRegistrados += 1;
+      datosActuales.cumplidos += cumplidosHoy;
+      datosActuales.totalPreguntas += HABITOS.length;
+
+      localStorage.setItem(claveStorage, JSON.stringify(datosActuales));
+      document.getElementById("formularioDia").classList.add("oculto");
+      renderResumen();
+    }
+
+    function borrarHistorial() {
+      if (!confirm(`¿Seguro que querés borrar el historial de ${astronautaActual}?`)) return;
+      localStorage.removeItem(claveStorage);
+      datosActuales = { astronauta: astronautaActual, diasRegistrados: 0, cumplidos: 0, totalPreguntas: 0, presiones: [] };
+      document.getElementById("formularioDia").classList.add("oculto");
+      renderResumen();
+    }
+
+    function renderResumen() {
+      const { astronauta, diasRegistrados, cumplidos, totalPreguntas, presiones } = datosActuales;
+      const pct = totalPreguntas > 0 ? ((cumplidos / totalPreguntas) * 100).toFixed(1) : "0.0";
+
+      let htmlPresiones = "<p>Sin mediciones de presión ocular registradas.</p>";
+      if (presiones.length > 0) {
+        htmlPresiones = "<ul>" + presiones.map(p => `<li>Día ${p.dia}: ${p.valor}</li>`).join("") + "</ul>";
+      }
+
+      document.getElementById("areaResumen").innerHTML = `
+        <h3>Resumen acumulado: ${astronauta}</h3>
+        <p><strong>Días registrados:</strong> ${diasRegistrados}</p>
+        <p><strong>Cumplimiento:</strong> ${cumplidos}/${totalPreguntas} (${pct}%)</p>
+        <strong>Historial de presión ocular:</strong>
+        ${htmlPresiones}
+      `;
+    }
+  </script>
+</body>
+</html>
